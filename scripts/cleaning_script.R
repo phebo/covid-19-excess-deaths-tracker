@@ -230,7 +230,7 @@ chile_covid_source_latest <- read_csv("https://raw.githubusercontent.com/DataSci
 chile_regions_weekly_total_deaths <- bind_rows(chile_total_source_2015_12_31,chile_total_source_2016_12_31,
                                        chile_total_source_2017_12_31,chile_total_source_2018_12_31,
                                        chile_total_source_2019_12_31,chile_total_source_latest) %>%
-  mutate(year = AÑO, month = MES, day = DIA, region_long_name = REGION) %>%
+  mutate(year = `AÑO`, month = MES, day = DIA, region_long_name = REGION) %>%
   left_join(chile_regions) %>%
   group_by(region_number,year,month,day) %>%
   summarise(total_deaths = sum(TOTAL,na.rm=T)) %>%
@@ -619,7 +619,9 @@ write.csv(indonesia_monthly_deaths %>%
 
 # Import Italy's data
 italy_comunes <- read_excel("source-data/italy/italy_comunes.xlsx")
+unzip("source-data/italy/italy_total_source_2020_05_31.csv.zip", exdir = "source-data/italy")
 italy_total_source_latest <- fread("source-data/italy/italy_total_source_2020_05_31.csv")
+file.remove("source-data/italy/italy_total_source_2020_05_31.csv")
 italy_covid_source_latest <- read_csv("https://raw.githubusercontent.com/pcm-dpc/COVID-19/master/dati-regioni/dpc-covid19-ita-regioni.csv")
 
 # Create list of Italian comunes with reliable data
@@ -1079,54 +1081,57 @@ write.csv(spain_regions_weekly_deaths %>%
 sweden_total_source_latest <- fread("source-data/sweden/sweden_total_source_latest.csv") 
 download.file("https://www.arcgis.com/sharing/rest/content/items/b5e7488e117749c19881cce45db13f7e/data", # Download covid data
               destfile="source-data/sweden/sweden_covid_source_latest.xlsx")
-sweden_covid_source_latest <- read_excel("source-data/sweden/sweden_covid_source_latest.xlsx",sheet=2) %>%
-  filter(Datum_avliden != "Uppgift saknas") %>% # Remove deaths with an unknown date of occurrence
-  mutate(date = as.Date(as.numeric(Datum_avliden), origin="1899-12-30"),
-         covid_deaths = Antal_avlidna)
 
-# Group total deaths by week
-sweden_weekly_total_deaths <- sweden_total_source_latest %>% 
-  mutate(start_date = dmy(start_date),
-         year = year(start_date),
-         week = week(start_date)) %>%
-  group_by(country,region,week,year,population) %>%
-  summarise(total_deaths = sum(total_deaths,na.rm=T)) %>%
-  arrange(year,week)
+## Below code gave errors on 21/8 ##
 
-# Group covid deaths by week
-sweden_weekly_covid_deaths <- sweden_covid_source_latest %>%
-  dplyr::select(date,covid_deaths) %>%
-  bind_rows(expand.grid(date = seq(as.Date("2015-01-01"), as.Date("2020-03-10"), by="days"),
-                        covid_deaths = 0)) %>%
-  mutate(week = week(date),
-         year = year(date)) %>%
-  group_by(year,week) %>%
-  summarise(covid_deaths = sum(covid_deaths, na.rm=T)) %>%
-  drop_na()
-
-# Join weekly total deaths and weekly covid deaths together
-sweden_weekly_deaths <- sweden_weekly_total_deaths %>%
-  left_join(sweden_weekly_covid_deaths) %>% 
-  mutate(region_code = 0,
-         start_date = as.Date(ISOdate(year-1, 12, 31)) + (week*7) - 6,
-         end_date = start_date + 6,
-         covid_deaths = replace_na(covid_deaths,0),
-         expected_deaths = "TBC") %>% # To be calculated
-  ungroup() %>%
-  ungroup() %>%
-  dplyr::select(country,region,region_code,start_date,end_date,year,week,
-                population,total_deaths,covid_deaths,expected_deaths) %>%
-  drop_na() %>%
-  filter(week != 53,
-         end_date <= as.Date("2020-07-21")) # Remove weeks with incomplete data
-
-# Export as CSV
-write.csv(sweden_weekly_deaths %>%
-            mutate(start_date = format(start_date, "%Y-%m-%d"),
-                   end_date = format(end_date, "%Y-%m-%d")),
-          "output-data/historical-deaths/sweden_weekly_deaths.csv",
-          fileEncoding = "UTF-8",
-          row.names=FALSE)
+# sweden_covid_source_latest <- read_excel("source-data/sweden/sweden_covid_source_latest.xlsx",sheet=2) %>%
+#   filter(Datum_avliden != "Uppgift saknas") %>% # Remove deaths with an unknown date of occurrence
+#   mutate(date = as.Date(as.numeric(Datum_avliden), origin="1899-12-30"),
+#          covid_deaths = Antal_avlidna)
+# 
+# # Group total deaths by week
+# sweden_weekly_total_deaths <- sweden_total_source_latest %>%
+#   mutate(start_date = dmy(start_date),
+#          year = year(start_date),
+#          week = week(start_date)) %>%
+#   group_by(country,region,week,year,population) %>%
+#   summarise(total_deaths = sum(total_deaths,na.rm=T)) %>%
+#   arrange(year,week)
+# 
+# # Group covid deaths by week
+# sweden_weekly_covid_deaths <- sweden_covid_source_latest %>%
+#   dplyr::select(date,covid_deaths) %>%
+#   bind_rows(expand.grid(date = seq(as.Date("2015-01-01"), as.Date("2020-03-10"), by="days"),
+#                         covid_deaths = 0)) %>%
+#   mutate(week = week(date),
+#          year = year(date)) %>%
+#   group_by(year,week) %>%
+#   summarise(covid_deaths = sum(covid_deaths, na.rm=T)) %>%
+#   drop_na()
+# 
+# # Join weekly total deaths and weekly covid deaths together
+# sweden_weekly_deaths <- sweden_weekly_total_deaths %>%
+#   left_join(sweden_weekly_covid_deaths) %>%
+#   mutate(region_code = 0,
+#          start_date = as.Date(ISOdate(year-1, 12, 31)) + (week*7) - 6,
+#          end_date = start_date + 6,
+#          covid_deaths = replace_na(covid_deaths,0),
+#          expected_deaths = "TBC") %>% # To be calculated
+#   ungroup() %>%
+#   ungroup() %>%
+#   dplyr::select(country,region,region_code,start_date,end_date,year,week,
+#                 population,total_deaths,covid_deaths,expected_deaths) %>%
+#   drop_na() %>%
+#   filter(week != 53,
+#          end_date <= as.Date("2020-07-21")) # Remove weeks with incomplete data
+# 
+# # Export as CSV
+# write.csv(sweden_weekly_deaths %>%
+#             mutate(start_date = format(start_date, "%Y-%m-%d"),
+#                    end_date = format(end_date, "%Y-%m-%d")),
+#           "output-data/historical-deaths/sweden_weekly_deaths.csv",
+#           fileEncoding = "UTF-8",
+#           row.names=FALSE)
 
 # Step 22: import and clean Switzerland's data---------------------------------------
 
